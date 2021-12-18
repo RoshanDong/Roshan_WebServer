@@ -1,0 +1,126 @@
+ <!DOCTYPE html>
+ <html lang="en">
+ <head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <script src="http://libs.baidu.com/jquery/2.0.0/jquery.js"></script>
+   <meta http-equiv="X-UA-Compatible" content="ie=edge">
+   <title>摄像头拍照</title>
+</head>
+<body>
+<video id="video" width="480" height="320" controls>
+</video>
+<div>
+   <button id="capture">拍照</button>
+   <button id="shangchuan" onclick="uploadImage()">上传</button>
+</div>
+<canvas id="canvas" width="480" height="320"></canvas>
+<script>
+   //访问用户媒体设备的兼容方法
+   function getUserMedia(constraints, success, error) {
+       if (navigator.mediaDevices.getUserMedia) {
+           //最新的标准API
+           navigator.mediaDevices.getUserMedia(constraints).then(success).catch(error);
+       } else if (navigator.webkitGetUserMedia) {
+           //webkit核心浏览器
+           navigator.webkitGetUserMedia(constraints,success, error)
+       } else if (navigator.mozGetUserMedia) {
+           //firfox浏览器
+           navigator.mozGetUserMedia(constraints, success, error);
+       } else if (navigator.getUserMedia) {
+           //旧版API
+           navigator.getUserMedia(constraints, success, error);
+       }
+   }
+
+   let video = document.getElementById('video');
+   let canvas = document.getElementById('canvas');
+   let context = canvas.getContext('2d');
+
+   function success(stream) {
+       //兼容webkit核心浏览器
+       let CompatibleURL = window.URL || window.webkitURL;
+       //将视频流设置为video元素的源
+       console.log(stream);
+
+       //video.src = CompatibleURL.createObjectURL(stream);
+       video.srcObject = stream;
+       video.play();
+   }
+
+   function error(error) {
+       console.log(`访问用户媒体设备失败`);
+   }
+
+   if (navigator.mediaDevices.getUserMedia || navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia) {
+       //调用用户媒体设备, 访问摄像头
+       getUserMedia({video : {width: 480, height: 320}}, success, error);
+   } else {
+       alert('不支持访问用户媒体');
+   }
+
+   document.getElementById('capture').addEventListener('click', function () {
+       context.drawImage(video, 0, 0, 480, 320);
+       var imgData = canvas.toDataURL();
+   })
+
+  function uploadImage() {
+       var imgData = canvas.toDataURL();
+       // 接着上文的img.src说
+       let file =imgData; // 把整个base64给file
+       let name = "DSMpic" + ".png"; // 定义文件名字（例如：abc.png ， cover.png）
+       var type = "image/png"; // 定义图片类型（canvas转的图片一般都是png，也可以指定其他类型）
+       let conversions = base64ToBlob(file, type); // 调用base64转图片方法
+       var formData = new FormData();
+       formData.append('file', conversions);
+        // conversions就是转化之后的图片文件，
+       //canvas.toBlob()
+       //var imdata1 =JSON.stringify(imgData);
+       var uploadAjax = $.ajax({
+           type: "post",
+           //后端需要调用的地址
+           url: "${ctx}/xwhj/familyinfo/upload",
+           data: formData,
+           contentType:false,
+           async: false,
+           cache: false,
+           processData:false,
+           success: function (htmlVal) {
+               //成功后回调
+           },
+           error: function (data) {
+           },
+           //调用执行后调用的函数
+           complete: function (XMLHttpRequest, textStatus) {
+               if (textStatus == 'timeout') {
+                   uploadAjax.abort(); //取消请求
+                   //超时提示：请求超时，请重试
+                   alert("请求超时，请重试")
+                   //请求超时返回首页
+                   closeCard();
+               }
+           }
+       })
+   }
+//这个是将Base64转换为Blob传到后台的方法
+function base64ToBlob(urlData, type) {
+    let arr = urlData.split(',');
+    let mime = arr[0].match(/:(.*?);/)[1] || type;
+    // 去掉url的头，并转化为byte
+    let bytes = window.atob(arr[1]);
+    // 处理异常,将ascii码小于0的转换为大于0
+    let ab = new ArrayBuffer(bytes.length);
+    // 生成视图（直接针对内存）：8位无符号整数，长度1个字节
+    let ia = new Uint8Array(ab);
+    for (let i = 0; i < bytes.length; i++) {
+        ia[i] = bytes.charCodeAt(i);
+    }
+    return new Blob([ab], {
+        type: mime
+    });
+}
+
+</script>
+</body>
+</html>
+
